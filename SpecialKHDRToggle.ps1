@@ -1,3 +1,9 @@
+# Do the logging
+$logFile = Join-Path -Path $PSScriptRoot -ChildPath "log.txt"
+Start-Transcript -Path $logFile
+
+Write-Host "Starting SpecialK HDR Toggle..."
+
 # Load the PSIni module
 Import-Module PSIni
 
@@ -8,35 +14,37 @@ $jsonFilePath = Join-Path -Path $PSScriptRoot -ChildPath "games.json"
 $jsonContent = Get-Content -Path $jsonFilePath -Raw | ConvertFrom-Json
 
 # Get the environment variable value
-$hdrValue = $env:SUNSHINE_CLIENT_HDR
+$clientHdrState = $env:SUNSHINE_CLIENT_HDR
+
+Write-Host "Moonlight client HDR state: $clientHdrState"
 
 # Iterate over each name in the JSON file
-foreach ($name in $jsonContent.names) {
+foreach ($game in $jsonContent.games) {
     # Construct the path to the INI file
-    $iniFilePath = Join-Path -Path $env:USERPROFILE -ChildPath "Profiles\$name\dxgi.ini"
+    $iniFilePath = Join-Path -Path $env:USERPROFILE -ChildPath "Documents\My Mods\SpecialK\Profiles\$game\dxgi.ini"
 
     # Check if the INI file exists
     if (Test-Path -Path $iniFilePath) {
         # Read the INI file content
-        $iniContent = Get-IniContent -Path $iniFilePath
+        $iniContent = Get-IniContent $iniFilePath
 
         # Check if the SpecialK.HDR section exists
-        if (-not $iniContent.ContainsKey('SpecialK.HDR')) {
+        if (-not $iniContent.Contains('SpecialK.HDR')) {
             throw "Error: The section 'SpecialK.HDR' does not exist in $iniFilePath"
         }
 
         # Update the Use16BitSwapChain setting in the SpecialK.HDR section
-        if ($iniContent['SpecialK.HDR'].ContainsKey('Use16BitSwapChain')) {
-            $iniContent['SpecialK.HDR']['Use16BitSwapChain'] = $hdrValue
+        if ($iniContent['SpecialK.HDR'].Contains('Use16BitSwapChain')) {
+            $iniContent['SpecialK.HDR']['Use16BitSwapChain'] = $clientHdrState
         } else {
             throw "Error: The key 'Use16BitSwapChain' does not exist in the 'SpecialK.HDR' section of $iniFilePath"
         }
 
         # Write the updated content back to the INI file
-        Out-IniFile -InputObject $iniContent -FilePath $iniFilePath
+        Out-IniFile -InputObject $iniContent -FilePath $iniFilePath -Force
 
-        Write-Output "Updated $iniFilePath"
+        Write-Host "Updated $iniFilePath to HDR Status of $clientHdrState"
     } else {
-        Write-Output "INI file not found for $name"
+        Write-Host "INI file not found for $game"
     }
 }
